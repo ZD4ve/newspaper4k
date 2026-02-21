@@ -2,6 +2,7 @@
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import time
 from typing import Callable, Optional, Union
 
 import requests
@@ -210,21 +211,33 @@ def do_request(url: str, config: Configuration, method: str = "get", data: Union
         if is_binary_url(url):
             raise ArticleBinaryDataException(f"Article is binary data: {url}")
 
-    if method == "get":
-        response = session.get(
-            url=url,
-            **config.requests_params,
-            data=data,
-        )
-    elif method == "post":
-        response = session.post(
-            url=url,
-            **config.requests_params,
-            data=data,
-        )
-    else:
-        raise NotImplementedError(f"Method {method} not implemented")
-
+    got_to_many_requests_counter = 0
+    while True:
+        if method == "get":
+            response = session.get(
+                url=url,
+                **config.requests_params,
+                data=data,
+            )
+        elif method == "post":
+            response = session.post(
+                url=url,
+                **config.requests_params,
+                data=data,
+            )
+        else:
+            raise NotImplementedError(f"Method {method} not implemented")
+        
+        if response.status_code == 429:
+            if got_to_many_requests_counter <= 5:
+                got_to_many_requests_counter += 1
+                log.warning("Received 429 Too Many Requests for URL: %s. Retrying after a delay.", url)
+                time.sleep(8 + 2 ** got_to_many_requests_counter)
+            if got_to_many_requests_counter > 5:
+                log.error("Received 429 Too Many Requests for URL: %s after multiple retries. Aborting.", url)
+                break
+        else:
+            break
     return response
 
 
