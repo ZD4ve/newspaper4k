@@ -345,7 +345,8 @@ class Source:
         articles = []
 
         def get_urls(feed):
-            feed = re.sub("<[^<]+?>", " ", str(feed))
+            feed = re.sub(r"<!\[CDATA\[(.*?)\]\]>", r"\1", str(feed))
+            feed = re.sub("<[^<]+?>", " ", feed)
             results = re.findall(
                 r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|" "(?:%[0-9a-fA-F][0-9a-fA-F]))+",
                 feed,
